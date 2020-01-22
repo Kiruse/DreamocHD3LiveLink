@@ -17,20 +17,68 @@ bl_info = {
 }
 
 
+collection = None
+cam_front_data = cam_left_data = cam_right_data = None
+cam_front      = cam_left      = cam_right      = None
+
+
 def update_enabled(props, context):
-    if self.enabled:
+    if props.enabled:
         start_preview(props, context)
     else:
         stop_preview(props, context)
 
 def start_preview(props, context):
-    # TODO: Spawn front, left, right cameras
+    acquire_collection()
+    acquire_cameras()
+    # TODO: Translate & rotate cameras
     # TODO: Render & stitch front, left, right views
     pass
 
 def stop_preview(props, context):
-    # TODO: Despawn front, left, right cameras
-    pass
+    bpy.data.scenes[0].collection.children.unlink(collection)
+    bpy.data.collections.remove(collection)
+    
+    for cam in [cam_front, cam_left, cam_right]:
+        bpy.data.objects.remove(cam)
+    for dat in [cam_front_data, cam_left_data, cam_right_data]:
+        bpy.data.cameras.remove(dat)
+
+def acquire_collection():
+    global collection
+    if 'DreamocHD3LiveLink' in bpy.data.collections:
+        collection = bpy.data.collections['DreamocHD3LiveLink']
+    else:
+        collection = bpy.data.collections.new('DreamocHD3LiveLink')
+    bpy.data.scenes[0].collection.children.link(collection)
+
+def acquire_cameras():
+    global cam_front, cam_front_data, cam_left, cam_left_data, cam_right, cam_right_data
+    cam_front, cam_front_data = acquire_camera('DreamocHD3LL_front')
+    cam_left,  cam_left_data  = acquire_camera('DreamocHD3LL_left')
+    cam_right, cam_right_data = acquire_camera('DreamocHD3LL_right')
+
+def acquire_camera(name):
+    cameras = bpy.data.cameras
+    objects = bpy.data.objects
+    
+    if name in cameras:
+        data = cameras[name]
+    else:
+        data = cameras.new(name)
+    
+    if name in objects:
+        cam  = objects[name]
+    else:
+        cam  = objects.new(name, data)
+        collection.objects.link(cam)
+    
+    return cam, data
+
+
+def update_camera_distance(props, context):
+    dist = props.camera_distance
+    # TODO: Adjust distance of front, left, right cameras to origin
 
 
 class DreamocHD3LivePreviewProps(PropertyGroup):
@@ -42,10 +90,18 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
     )
     
     display_number : IntProperty(
-        name="Display Number",
+        name="Display number",
         description="Number of the holographic display as registered with the operating system.",
         default=2,
         min=1,
+    )
+    
+    camera_distance : FloatProperty(
+        name="Camera distance",
+        description="Distance of all three cameras to the origin.",
+        default=500,
+        min=0,
+        update=update_camera_distance,
     )
 
 class DreamocHD3LivePreviewPanel(Panel):
@@ -63,6 +119,7 @@ class DreamocHD3LivePreviewPanel(Panel):
         props  = bpy.data.scenes[0].dreamocpreviewprops
         layout.enabled = props.enabled
         layout.prop(props, 'display_number')
+        layout.prop(props, 'camera_distance')
 
 
 
