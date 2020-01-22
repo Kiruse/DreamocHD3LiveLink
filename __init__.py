@@ -17,11 +17,28 @@ bl_info = {
 }
 
 
+def update_enabled(props, context):
+    if self.enabled:
+        start_preview(props, context)
+    else:
+        stop_preview(props, context)
+
+def start_preview(props, context):
+    # TODO: Spawn front, left, right cameras
+    # TODO: Render & stitch front, left, right views
+    pass
+
+def stop_preview(props, context):
+    # TODO: Despawn front, left, right cameras
+    pass
+
+
 class DreamocHD3LivePreviewProps(PropertyGroup):
     enabled : BoolProperty(
         name="Enable",
         description="Enable the live preview.",
         default=False,
+        update=update_enabled,
     )
     
     display_number : IntProperty(
