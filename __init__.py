@@ -2,6 +2,7 @@ import bpy
 from bpy.props import *
 from bpy.types import Panel, Menu, Operator, PropertyGroup, Scene
 from bpy.utils import register_class, unregister_class
+from math import degrees, radians
 
 addon_name = __name__
 
@@ -31,7 +32,7 @@ def update_enabled(props, context):
 def start_preview(props, context):
     acquire_collection()
     acquire_cameras()
-    # TODO: Translate & rotate cameras
+    transform_cameras(props)
     # TODO: Render & stitch front, left, right views
     pass
 
@@ -75,10 +76,20 @@ def acquire_camera(name):
     
     return cam, data
 
+def transform_cameras(props):
+    dist = props.camera_distance
+    
+    cam_front.location = (0, -dist, 0)
+    cam_left.location  = (-dist, 0, 0)
+    cam_right.location = ( dist, 0, 0)
+    
+    cam_front.rotation_euler = (radians(90), 0, radians(  0))
+    cam_left.rotation_euler  = (radians(90), 0, radians(-90))
+    cam_right.rotation_euler = (radians(90), 0, radians( 90))
+
 
 def update_camera_distance(props, context):
-    dist = props.camera_distance
-    # TODO: Adjust distance of front, left, right cameras to origin
+    transform_cameras(props)
 
 
 class DreamocHD3LivePreviewProps(PropertyGroup):
@@ -99,7 +110,7 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
     camera_distance : FloatProperty(
         name="Camera distance",
         description="Distance of all three cameras to the origin.",
-        default=500,
+        default=10,
         min=0,
         update=update_camera_distance,
     )
