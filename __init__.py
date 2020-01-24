@@ -3,6 +3,7 @@ from bpy.props import *
 from bpy.types import Panel, Menu, Operator, PropertyGroup, Scene
 from bpy.utils import register_class, unregister_class
 from math import degrees, radians
+import numpy as np
 
 addon_name = __name__
 
@@ -30,14 +31,14 @@ def update_enabled(props, context):
         stop_preview(props, context)
 
 def start_preview(props, context):
-    acquire_collection()
+    acquire_collection(context)
     acquire_cameras()
     transform_cameras(props)
     # TODO: Render & stitch front, left, right views
     pass
 
 def stop_preview(props, context):
-    bpy.data.scenes[0].collection.children.unlink(collection)
+    context.scene.collection.children.unlink(collection)
     bpy.data.collections.remove(collection)
     
     for cam in [cam_front, cam_left, cam_right]:
@@ -45,13 +46,13 @@ def stop_preview(props, context):
     for dat in [cam_front_data, cam_left_data, cam_right_data]:
         bpy.data.cameras.remove(dat)
 
-def acquire_collection():
+def acquire_collection(context):
     global collection
     if 'DreamocHD3LiveLink' in bpy.data.collections:
         collection = bpy.data.collections['DreamocHD3LiveLink']
     else:
         collection = bpy.data.collections.new('DreamocHD3LiveLink')
-    bpy.data.scenes[0].collection.children.link(collection)
+    context.scene.collection.children.link(collection)
 
 def acquire_cameras():
     global cam_front, cam_front_data, cam_left, cam_left_data, cam_right, cam_right_data
@@ -123,11 +124,11 @@ class DreamocHD3LivePreviewPanel(Panel):
     bl_context     = "output"
     
     def draw_header(self, context):
-        self.layout.prop(bpy.data.scenes[0].dreamocpreviewprops, 'enabled', text='')
+        self.layout.prop(context.scene.dreamocpreviewprops, 'enabled', text='')
     
     def draw(self, context):
         layout = self.layout
-        props  = bpy.data.scenes[0].dreamocpreviewprops
+        props  = context.scene.dreamocpreviewprops
         layout.enabled = props.enabled
         layout.prop(props, 'display_number')
         layout.prop(props, 'camera_distance')
