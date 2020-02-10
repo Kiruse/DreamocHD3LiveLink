@@ -1,3 +1,8 @@
+import sys
+import os
+currdir = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(currdir)
+
 import bpy
 from bpy.props import *
 from bpy.types import Panel, Menu, Operator, PropertyGroup, Scene
@@ -18,47 +23,22 @@ bl_info = {
     "category": "View3D",
 }
 
-
-collection = None
-cam_front_data = cam_left_data = cam_right_data = None
-cam_front      = cam_left      = cam_right      = None
+cam = camdat = None
 
 
-def update_enabled(props, context):
-    if props.enabled:
-        start_preview(props, context)
-    else:
-        stop_preview(props, context)
-
-def start_preview(props, context):
-    acquire_collection(context)
-    acquire_cameras()
-    transform_cameras(props)
-    # TODO: Render & stitch front, left, right views
-    pass
-
-def stop_preview(props, context):
-    context.scene.collection.children.unlink(collection)
-    bpy.data.collections.remove(collection)
+def render(ctx, props):
+    render = ctx.scene.render
+    oldcam  = ctx.scene.camera
+    olddims = (render.resolution_x, render.resolution_y)
     
-    for cam in [cam_front, cam_left, cam_right]:
-        bpy.data.objects.remove(cam)
-    for dat in [cam_front_data, cam_left_data, cam_right_data]:
-        bpy.data.cameras.remove(dat)
-
-def acquire_collection(context):
-    global collection
-    if 'DreamocHD3LiveLink' in bpy.data.collections:
-        collection = bpy.data.collections['DreamocHD3LiveLink']
-    else:
-        collection = bpy.data.collections.new('DreamocHD3LiveLink')
-    context.scene.collection.children.link(collection)
-
-def acquire_cameras():
-    global cam_front, cam_front_data, cam_left, cam_left_data, cam_right, cam_right_data
-    cam_front, cam_front_data = acquire_camera('DreamocHD3LL_front')
-    cam_left,  cam_left_data  = acquire_camera('DreamocHD3LL_left')
-    cam_right, cam_right_data = acquire_camera('DreamocHD3LL_right')
+    ctx.scene.camera = cam
+    render.resolution_x, render.resolution_y = props.img_width, props.img_height
+    
+    bpy.ops.render.render()
+    
+    ctx.scene.camera = oldcam
+    render.resolution_x, render.resolution_y = olddims
+    return np.array(bpy.data.images['Viewer Node'].pixels)
 
 def acquire_camera(name):
     cameras = bpy.data.cameras
@@ -77,30 +57,8 @@ def acquire_camera(name):
     
     return cam, data
 
-def transform_cameras(props):
-    dist = props.camera_distance
-    
-    cam_front.location = (0, -dist, 0)
-    cam_left.location  = (-dist, 0, 0)
-    cam_right.location = ( dist, 0, 0)
-    
-    cam_front.rotation_euler = (radians(90), 0, radians(  0))
-    cam_left.rotation_euler  = (radians(90), 0, radians(-90))
-    cam_right.rotation_euler = (radians(90), 0, radians( 90))
-
-
-def update_camera_distance(props, context):
-    transform_cameras(props)
-
 
 class DreamocHD3LivePreviewProps(PropertyGroup):
-    enabled : BoolProperty(
-        name="Enable",
-        description="Enable the live preview.",
-        default=False,
-        update=update_enabled,
-    )
-    
     display_number : IntProperty(
         name="Display number",
         description="Number of the holographic display as registered with the operating system.",
@@ -108,12 +66,20 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
         min=1,
     )
     
-    camera_distance : FloatProperty(
-        name="Camera distance",
-        description="Distance of all three cameras to the origin.",
-        default=10,
-        min=0,
-        update=update_camera_distance,
+    img_width : IntProperty(
+        name="Render width",
+        description="Width of each view's rendered image.",
+        default=1080,
+        min=50,
+        max=3840,
+    )
+    
+    img_height : IntProperty(
+        name="Render height",
+        description="Height of each view's rendered image.",
+        default=720,
+        min=50,
+        max=2160,
     )
 
 class DreamocHD3LivePreviewPanel(Panel):
@@ -121,30 +87,43 @@ class DreamocHD3LivePreviewPanel(Panel):
     bl_label  = "Dreamoc HD3 Live Preview"
     bl_space_type  = "PROPERTIES"
     bl_region_type = "WINDOW"
-    bl_context     = "output"
+    bl_context     = "render"
     
-    def draw_header(self, context):
-        self.layout.prop(context.scene.dreamocpreviewprops, 'enabled', text='')
+    # DEPRECATED because Blender cannot render nowhere near 30FPS due to the render result being downloaded from GPU.
+    # Would require implementing a custom RenderEngine and using bgl calls to render directly to a View3D type area.
+    # def draw_header(self, context):
+    #     self.layout.prop(context.scene.dreamocpreviewprops, 'enabled', text='')
     
     def draw(self, context):
         layout = self.layout
         props  = context.scene.dreamocpreviewprops
-        layout.enabled = props.enabled
+        # layout.enabled = props.enabled
+        layout.operator("dreamochd3.update")
         layout.prop(props, 'display_number')
-        layout.prop(props, 'camera_distance')
+        layout.prop(props, 'img_width')
+        layout.prop(props, 'img_height')
+
+class DreamocHD3LivePreviewUpdateOperator(Operator):
+    bl_idname = "dreamochd3.update"
+    bl_label  = "Dreamoc HD3 Preview Update"
+    
+    def execute(self, context):
+        # TODO: Set camera to viewport and render
+        # TODO: Set camera to left & right relative to viewport parameters and render
+        return {'FINISHED'}
 
 
 
 classes = (
     DreamocHD3LivePreviewProps,
     DreamocHD3LivePreviewPanel,
+    DreamocHD3LivePreviewUpdateOperator,
 )
 
 def register():
     for curr in classes:
         register_class(curr)
     Scene.dreamocpreviewprops = PointerProperty(type=DreamocHD3LivePreviewProps)
-    
 
 def unregister():
     for curr in reversed(classes):
