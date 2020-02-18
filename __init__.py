@@ -62,7 +62,7 @@ def acquire_camera(name):
     
     return cam
 
-def getObjectQuat(obj):
+def get_object_quat(obj):
     mode = obj.rotation_mode
     if mode == 'QUATERNION':
         return obj.rotation_quaternion
@@ -71,26 +71,26 @@ def getObjectQuat(obj):
         return Quaternion((val[0], val[1], val[2]), val[3])
     return obj.rotation_euler.to_quaternion()
 
-def getCameraUpVector(cam, rotation = None):
+def get_camera_up_vector(cam, rotation = None):
     if rotation is None:
-        rotation = getObjectQuat(cam)
+        rotation = get_object_quat(cam)
     vec = Vector((0, 1, 0))
     vec.rotate(rotation)
     return vec
 
-def getViewportOffset(region3d):
+def get_viewport_offset(region3d):
     offset = Vector((0, 0, region3d.view_distance))
     offset.rotate(region3d.view_rotation)
     return offset
 
-def transformViewportRight(cam, camRotation, pivot, offset):
-    _transformViewport(cam, camRotation, pivot, offset, 90)
+def transform_viewport_right(cam, camRotation, pivot, offset):
+    _transform_viewport(cam, camRotation, pivot, offset, 90)
 
-def transformViewportLeft(cam, camRotation, pivot, offset):
-    _transformViewport(cam, camRotation, pivot, offset, -90)
+def transform_viewport_left(cam, camRotation, pivot, offset):
+    _transform_viewport(cam, camRotation, pivot, offset, -90)
 
-def _transformViewport(cam, camRotation, pivot, offset, rotation_magnitude):
-    up = getCameraUpVector(cam, rotation=camRotation)
+def _transform_viewport(cam, camRotation, pivot, offset, rotation_magnitude):
+    up = get_camera_up_vector(cam, rotation=camRotation)
     rotation = Quaternion(up.to_tuple(), radians(rotation_magnitude))
     
     newOffset = offset.copy()
@@ -126,11 +126,11 @@ class TempOverride:
                 setattr(obj, attr, override['attrs'][attr])
     
     def override(self, obj, attr, value):
-        ovr = self.getObjectOverride(obj)
+        ovr = self.get_object_override(obj)
         ovr['attrs'][attr] = getattr(obj, attr)
         setattr(obj, attr, value)
     
-    def getObjectOverride(self, obj):
+    def get_object_override(self, obj):
         for override in self.overrides:
             if override['object'] == obj:
                 return override
@@ -199,15 +199,15 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
         if displayer is not None and not displayer.initialized:
             displayer.initialize(display=props.display_number, width=props.img_width, height=props.img_height)
         
-        area = self._getView3DArea(context)
-        region = self._getRegion3D(area)
-        ctx = {'area': area, 'region': self._getWindowRegion(area)}
+        area = self._get_view3D_area(context)
+        region = self._get_region3D(area)
+        ctx = {'area': area, 'region': self._get_window_region(area)}
         
         oldcam = context.scene.camera
         context.scene.camera = cam
         
         pivot  = Vector(region.view_location)
-        offset = getViewportOffset(region)
+        offset = get_viewport_offset(region)
         
         # Since this is our camera we don't care about resetting it
         cam.rotation_mode = 'QUATERNION'
@@ -215,15 +215,15 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
         # Front view
         try: bpy.ops.view3d.camera_to_view(ctx)
         except: pass
-        basequat = getObjectQuat(cam).copy() # Original rotation of the viewport camera
+        basequat = get_object_quat(cam).copy() # Original rotation of the viewport camera
         render(context, props, filepath=f'{currdir}/tmp/front')
         
         # Left view
-        transformViewportLeft(cam, basequat, pivot, offset)
+        transform_viewport_left(cam, basequat, pivot, offset)
         render(context, props, filepath=f'{currdir}/tmp/left')
         
         # Right view
-        transformViewportRight(cam, basequat, pivot, offset)
+        transform_viewport_right(cam, basequat, pivot, offset)
         render(context, props, filepath=f'{currdir}/tmp/right')
         
         # Reset viewport as if nothing ever happened
@@ -235,18 +235,18 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
         
         return {'FINISHED'}
     
-    def _getView3DArea(self, ctx):
+    def _get_view3D_area(self, ctx):
         for area in ctx.screen.areas:
             if area.type == 'VIEW_3D':
                 return area
         return None
     
-    def _getWindowRegion(self, area):
+    def _get_window_region(self, area):
         for region in area.regions:
             if region.type == 'WINDOW':
                 return region
     
-    def _getRegion3D(self, area):
+    def _get_region3D(self, area):
         assert area.type == 'VIEW_3D'
         return area.spaces[0].region_3d
 
