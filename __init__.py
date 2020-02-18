@@ -103,6 +103,15 @@ def _transformViewport(cam, camRotation, pivot, offset, rotation_magnitude):
     cam.rotation_quaternion.rotate(rotation)
 
 
+def update_display(props, context):
+    if displayer is not None:
+        displayer.setDisplay(props.display_number)
+
+def update_dimensions(props, context):
+    if displayer is not None:
+        displayer.setDimensions(props.width, props.height)
+
+
 class TempOverride:
     def __init__(self):
         self.overrides = []
@@ -135,6 +144,7 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
         description="Number of the holographic display as registered with the operating system.",
         default=2,
         min=1,
+        update=update_display,
     )
     
     img_width : IntProperty(
@@ -143,6 +153,7 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
         default=1280,
         min=50,
         max=3840,
+        update=update_dimensions,
     )
     
     img_height : IntProperty(
@@ -151,6 +162,7 @@ class DreamocHD3LivePreviewProps(PropertyGroup):
         default=720,
         min=50,
         max=2160,
+        update=update_dimensions,
     )
 
 class DreamocHD3LivePreviewPanel(Panel):
@@ -180,8 +192,12 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
     
     def execute(self, context):
         global cam
+        global dimensions_sent
         cam = acquire_camera('DreamocHD3PreviewCamera')
         props = context.scene.dreamocpreviewprops
+        
+        if displayer is not None and not displayer.initialized:
+            displayer.initialize(display=props.display_number, width=props.img_width, height=props.img_height)
         
         area = self._getView3DArea(context)
         region = self._getRegion3D(area)
@@ -210,7 +226,12 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
         transformViewportRight(cam, basequat, pivot, offset)
         render(context, props, filepath=f'{currdir}/tmp/right')
         
+        # Reset viewport as if nothing ever happened
         bpy.ops.view3d.view_camera(ctx)
+        context.scene.camera = oldcam
+        
+        # Notify displayer app
+        displayer.notify()
         
         return {'FINISHED'}
     
@@ -243,10 +264,10 @@ def register():
     Scene.dreamocpreviewprops = PointerProperty(type=DreamocHD3LivePreviewProps)
     
     global displayer
-    # displayer = DisplayerClient()
-    # displayer.open()
+    if displayer is None: displayer = DisplayerClient()
+    displayer.open()
 
 def unregister():
     for curr in reversed(classes):
         unregister_class(curr)
-    # displayer.terminate()
+    displayer.terminate()
