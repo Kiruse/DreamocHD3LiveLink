@@ -81,6 +81,9 @@ class Displayer(Thread):
         with self.update_cond:
             self.dirty = True
             self.update_cond.notify()
+    
+    def do_update(self):
+        pass
 
 
 def main():
