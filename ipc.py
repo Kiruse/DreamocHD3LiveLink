@@ -66,16 +66,16 @@ class DisplayerHost:
         reqid = self.read_int()
         
         if reqid == RequestIds.TERMINATE:
-            self.terminate = True
+            self.delegate.terminate()
         
         elif reqid == RequestIds.USE_DISPLAY:
-            delegate.use_display(self.read_int())
+            self.delegate.use_display(self.read_int())
         
         elif reqid == RequestIds.SET_DIMS:
-            delegate.set_dimensions(self.read_int(), self.read_int())
+            self.delegate.set_dimensions(self.read_int(), self.read_int())
         
         elif reqid == RequestIds.RELOAD_RENDERS:
-            delegate.update()
+            self.delegate.update()
         
         return reqid
     
