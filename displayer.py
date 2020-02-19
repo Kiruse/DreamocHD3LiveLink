@@ -40,6 +40,7 @@ class Shape:
         return self
     
     def draw(self):
+        glBindVertexArray(self.vao)
         glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
     
     def load_texture(self):
