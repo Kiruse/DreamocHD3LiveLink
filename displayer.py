@@ -1,9 +1,58 @@
+from array import array
 from threading import Thread, Lock, Condition
 from ipc import DisplayerHost
-from OpenGL import GL
+from OpenGL.GL import *
 from glfw.GLFW import *
 from PIL import Image
+import os
 
+CURRDIR = os.path.abspath(os.path.dirname(__file__))
+
+
+class Shape:
+    def __init__(self, verts, uvs, image_filepath):
+        self.vao = 0
+        self.vbo_verts = 0
+        self.vbo_uvs = 0
+        self.tex = 0
+        self.verts = array('f', verts)
+        self.uvs   = array('f', uvs)
+        self.image_filepath = image_filepath
+    
+    def initialize(self):
+        self.vao = glGenVertexArrays(1)
+        self.vbo_verts, self.vbo_uvs = glGenBuffers(2)
+        self.tex = glGenTextures(1)
+        
+        glBindVertexArray(self.vao)
+        
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_verts)
+        glBufferData(GL_ARRAY_BUFFER, 4*len(self.verts), self.verts.tobytes(), GL_STATIC_DRAW)
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+        
+        # TODO: Use UVs
+        # glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
+        # glBufferData(GL_ARRAY_BUFFER, 4*len(self.uvs), self.uvs.tobytes(), GL_STATIC_DRAW)
+        # glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
+        # glEnableVertexAttribArray(1)
+        
+        return self
+    
+    def draw(self):
+        glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
+    
+    def load_texture(self):
+        img = Image.open(self.image_filepath)
+        glBindTexture(GL_TEXTURE_2D, self.tex)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, img.size[0], img.size[1], 0, GL_RGBA, GL_BYTE, self._get_image_data())
+    
+    def _get_image_data(self):
+        img = Image.open(filename)
+        pixels = array('B')
+        for pixel in img.getdata():
+            pixels += array('B', pixel)
+        return pixels
 
 class Displayer(Thread):
     def __init__(self, *args, **kwargs):
@@ -18,11 +67,23 @@ class Displayer(Thread):
         
         self.dimensions = (1280, 720)
         
+        # OpenGL resources
+        self.shape_front = self.shape_left = self.shape_right = None
+        self.program = 0
+        
+        # Threadsafety
         self.update_cond = Condition()
     
     def run(self):
         assert glfwInit()
         self._init_window()
+        self._init_shader()
+        
+        self.shape_front = Shape([-1, -1,   1, -1, 0.5, 1], [0, 0, 1, 0, 0.5, 1], f'{CURRDIR}/tmp/front.png').initialize()
+        self.shape_left  = Shape([-1, -1, 0.5,  1,  -1, 1], [0, 0, 0.5, 1, 0, 1], f'{CURRDIR}/tmp/left.png').initialize()
+        self.shape_right = Shape([ 1, -1,   1,  1, 0.5, 1], [1, 0, 1, 1, 0.5, 1], f'{CURRDIR}/tmp/right.png').initialize()
+        
+        glClearColor(0, 0, 0, 0)
         
         while not self.wants_terminate:
             with self.update_cond:
@@ -55,15 +116,59 @@ class Displayer(Thread):
         self.wnd = glfwCreateWindow(vidmode.size.width, vidmode.size.height, "Dreamoc HD3 Blender Preview", self.monitor, None)
         glfwMakeContextCurrent(self.wnd)
     
+    def _init_shader(self):
+        prog = self.program = glCreateProgram()
+        
+        vsh = self._load_shader(f'{CURRDIR}/shader_vertex.glsl', GL_VERTEX_SHADER)
+        glAttachShader(prog, vsh)
+        
+        fsh = self._load_shader(f'{CURRDIR}/shader_fragment.glsl', GL_FRAGMENT_SHADER)
+        glAttachShader(prog, fsh)
+        
+        glLinkProgram(prog)
+        if not self._get_program_iv(prog, GL_LINK_STATUS):
+            raise RuntimeError('Failed to link shader program: ', self._get_program_log(program))
+        glDeleteShader(vsh)
+        glDeleteShader(fsh)
+        glUseProgram(prog)
+    
+    def _load_shader(self, filename, shadertype):
+        glid = glCreateShader(shadertype)
+        glShaderSource(glid, [self._read_shader_source(filename)])
+        glCompileShader(glid)
+        if not self._get_shader_iv(glid, GL_COMPILE_STATUS):
+            raise RuntimeError('Failed to compile shader: ', self._get_shader_log(glid))
+        return glid
+    
+    def _read_shader_source(self, filename):
+        with open(filename) as f:
+            return f.read()
+    
+    def _get_shader_iv(self, shader, attr):
+        tmp = ctypes.c_int(0)
+        glGetShaderiv(shader, attr, ctypes.byref(tmp))
+        return tmp.value
+    
+    def _get_shader_log(self, shader):
+        return glGetShaderLogInfo(shader)
+    
+    def _get_program_iv(self, program, attr):
+        tmp = ctypes.c_int(0)
+        glGetProgramiv(program, attr, ctypes.byref(tmp))
+        return tmp.value
+    
+    def _get_program_log(self, program):
+        return glGetProgramInfoLog(program)
+    
     def _change_monitor(self, monitorid):
         self.monitor = self._get_monitor(monitorid)
         vidmode = glfwGetVideoMode(self.monitor)
-        glfwSetWindowMonitor(self.wnd, self.monitor, 0, 0, vidmode.width, vidmode.height, vidmode.refresh_rate)
+        glfwSetWindowMonitor(self.wnd, self.monitor, 0, 0, vidmode.size.width, vidmode.size.height, vidmode.refresh_rate)
         self.wants_monitor = None
     
     def _get_monitor(self, monitorid):
         monitors = glfwGetMonitors()
-        if monitorid < 0 or monitorid > len(monitors):
+        if monitorid < 0 or monitorid >= len(monitors):
             monitorid = len(monitors) - 1
         return monitors[monitorid]
     
@@ -83,7 +188,17 @@ class Displayer(Thread):
             self.update_cond.notify()
     
     def do_update(self):
-        pass
+        # self.shape_front.load_texture()
+        # self.shape_left.load_texture()
+        # self.shape_right.load_texture()
+        
+        glClear(GL_COLOR_BUFFER_BIT)
+        
+        self.shape_front.draw()
+        self.shape_left.draw()
+        self.shape_right.draw()
+        
+        glfwSwapBuffers(self.wnd)
 
 
 def main():

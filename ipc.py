@@ -21,7 +21,7 @@ class DisplayerClient:
     def open(self):
         if self.proc is None:
             currdir = os.path.abspath(os.path.dirname(__file__))
-            self.proc = Popen([f'{currdir}/venv/Scripts/python', f'{currdir}/displayer.py'], stdin=PIPE)
+            self.proc = Popen([f'{currdir}/venv/Scripts/python', f'{currdir}/displayer.py'], stdin=PIPE, bufsize=0)
             self.initialized = False
     
     def initialize(self, display = 2, width = 1280, height = 720):

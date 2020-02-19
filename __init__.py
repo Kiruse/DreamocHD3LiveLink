@@ -105,7 +105,7 @@ def _transform_viewport(cam, camRotation, pivot, offset, rotation_magnitude):
 
 def update_display(props, context):
     if displayer is not None:
-        displayer.setDisplay(props.display_number)
+        displayer.setDisplay(props.display_number-1)
 
 def update_dimensions(props, context):
     if displayer is not None:
@@ -197,7 +197,7 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
         props = context.scene.dreamocpreviewprops
         
         if displayer is not None and not displayer.initialized:
-            displayer.initialize(display=props.display_number, width=props.img_width, height=props.img_height)
+            displayer.initialize(display=props.display_number-1, width=props.img_width, height=props.img_height)
         
         area = self._get_view3D_area(context)
         region = self._get_region3D(area)
