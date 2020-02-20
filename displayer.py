@@ -31,11 +31,10 @@ class Shape:
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
         glEnableVertexAttribArray(0)
         
-        # TODO: Use UVs
-        # glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
-        # glBufferData(GL_ARRAY_BUFFER, 4*len(self.uvs), self.uvs.tobytes(), GL_STATIC_DRAW)
-        # glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
-        # glEnableVertexAttribArray(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_uvs)
+        glBufferData(GL_ARRAY_BUFFER, 4*len(self.uvs), self.uvs.tobytes(), GL_STATIC_DRAW)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(1)
         
         return self
     
@@ -80,9 +79,16 @@ class Displayer(Thread):
         self._init_window()
         self._init_shader()
         
-        self.shape_front = Shape([-1, -1,   1, -1, 0.5, 1], [0, 0, 1, 0, 0.5, 1], f'{CURRDIR}/tmp/front.png').initialize()
-        self.shape_left  = Shape([-1, -1, 0.5,  1,  -1, 1], [0, 0, 0.5, 1, 0, 1], f'{CURRDIR}/tmp/left.png').initialize()
-        self.shape_right = Shape([ 1, -1,   1,  1, 0.5, 1], [1, 0, 1, 1, 0.5, 1], f'{CURRDIR}/tmp/right.png').initialize()
+        vf  = self._convert_verts([(-21.5, -14.5), (21.5, -14.5), (-4, 3.5),     (21.5, -14.5), (4, 3.5),      (-4, 3.5)])
+        uvf = self._flatten_vecs( [(0.079, 0),     (0.922, 0),    (0.422, 0.62), (0.922, 0),    (0.578, 0.62), (0.422, 0.62)])
+        vl  = self._convert_verts([(-25.5, -14.5), (-21.5, -14.5), (-25.5, 14.5), (-21.5, -14.5), (-4, 3.5),  (-25.5, 14.5), (-25.5, 14.5), (-4, 3.5),  (-4, 14.5)])
+        uvl = self._flatten_vecs( [(1, 0),         (1, 0.186),     (0.265, 0),    (1, 0.186),     (0.543, 1), (0.265, 0),    (0.265, 0),    (0.543, 1), (0.265, 1)])
+        vr  = self._convert_verts([(21.5, -14.5), (25.5, -14.5), (25.5, 14.5), (21.5, -14.5), (25.5, 14.5), (4, 3.5),   (4, 3.5), (25.5, 14.5), (4, 14.5)])
+        uvr = self._flatten_vecs( [(0, 0.186),    (0, 0),        (0.735, 0),   (0, 0.186),    (0.735, 0),   (0.456, 1), (0.456, 1), (0.735, 0), (0.735, 1)])
+        
+        self.shape_front = Shape(vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
+        self.shape_left  = Shape(vl, uvl, f'{CURRDIR}/tmp/left.png').initialize()
+        self.shape_right = Shape(vr, uvr, f'{CURRDIR}/tmp/right.png').initialize()
         
         glClearColor(0, 0, 0, 0)
         
@@ -102,6 +108,16 @@ class Displayer(Thread):
         with self.update_cond:
             self.wants_terminate = True
             self.update_cond.notify()
+    
+    def _convert_verts(self, verts):
+        device_size = (51/2, 29/2) # approximation; in cm; halved because normalized screen coordinates in [-1;+1]
+        return [elem / device_size[idx%2] for idx, elem in enumerate(self._flatten_vecs(verts))]
+    
+    def _flatten_vecs(self, vecs):
+        result = []
+        for vec in vecs:
+            result += list(vec)
+        return result
     
     def _init_window(self):
         if self.wnd is not None:
