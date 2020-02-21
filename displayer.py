@@ -37,6 +37,10 @@ class Shape:
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8, ctypes.c_void_p(0))
         glEnableVertexAttribArray(1)
         
+        glBindTexture(GL_TEXTURE_2D, self.tex)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        
         return self
     
     def draw(self):
@@ -45,7 +49,7 @@ class Shape:
         glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
     
     def load_texture(self):
-        img = Image.open(self.image_filepath).transpose(Image.FLIP_TOP_BOTTOM)
+        img = Image.open(self.image_filepath).transpose(Image.FLIP_TOP_BOTTOM).transpose(Image.FLIP_LEFT_RIGHT)
         glBindTexture(GL_TEXTURE_2D, self.tex)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.size[0], img.size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, self._get_image_data(img).tobytes())
         glGenerateMipmap(GL_TEXTURE_2D)
@@ -81,16 +85,17 @@ class Displayer(Thread):
         self._init_window()
         self._init_shader()
         
-        vf  = self._convert_verts([(-21.5, -14.5), (21.5, -14.5), (-4, 3.5),     (21.5, -14.5), (4, 3.5),      (-4, 3.5)])
-        uvf = self._flatten_vecs( [(0.079, 0),     (0.922, 0),    (0.422, 0.62), (0.922, 0),    (0.578, 0.62), (0.422, 0.62)])
+        vf  = self._convert_verts([(-21.5, -14.5), (21.5, -14.5), (-4, 3.5), (21.5, -14.5), (4, 3.5), (-4, 3.5)])
+        uvf = self._flatten_vecs( [(-0.279, -0.109), (1.284, -0.109), (0.357, 1.109), (1.284, -0.109), (0.648, 1.109), (0.357, 1.109)])
         vl  = self._convert_verts([(-25.5, -14.5), (-21.5, -14.5), (-25.5, 14.5), (-21.5, -14.5), (-4, 3.5),  (-25.5, 14.5), (-25.5, 14.5), (-4, 3.5),  (-4, 14.5)])
-        uvl = self._flatten_vecs( [(1, 0),         (1, 0.186),     (0.265, 0),    (1, 0.186),     (0.543, 1), (0.265, 0),    (0.265, 0),    (0.543, 1), (0.265, 1)])
-        vr  = self._convert_verts([(21.5, -14.5), (25.5, -14.5), (25.5, 14.5), (21.5, -14.5), (25.5, 14.5), (4, 3.5),   (4, 3.5), (25.5, 14.5), (4, 14.5)])
-        uvr = self._flatten_vecs( [(0, 0.186),    (0, 0),        (0.735, 0),   (0, 0.186),    (0.735, 0),   (0.456, 1), (0.456, 1), (0.735, 0), (0.735, 1)])
+        uvl = self._flatten_vecs( [(1.227, -0.109), (1.227, 0.118), (0.038, -0.109), (1.227, 0.118), (0.489, 1.109), (0.038, -0.109), (0.038, -0.109), (0.489, 1.109), (0.038, 1.109)])
+        vr  = self._convert_verts([(21.5, -14.5), (25.5, -14.5), (25.5, 14.5), (21.5, -14.5), (25.5, 14.5), (4, 3.5), (4, 3.5), (25.5, 14.5), (4, 14.5)])
+        uvr = self._flatten_vecs( [(-0.226, 0.118), (-0.226, -0.109), (0.962, -0.109), (-0.226, 0.118), (0.962, -0.109), (0.511, 1.109), (0.511, 1.109), (0.962, -0.109), (0.962, 1.109)])
         
+        # NOTE: Left view is on the right side of the holographic display and vice versa!
         self.shape_front = Shape(self.program, vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
-        self.shape_left  = Shape(self.program, vl, uvl, f'{CURRDIR}/tmp/left.png').initialize()
-        self.shape_right = Shape(self.program, vr, uvr, f'{CURRDIR}/tmp/right.png').initialize()
+        self.shape_left  = Shape(self.program, vl, uvl, f'{CURRDIR}/tmp/right.png').initialize()
+        self.shape_right = Shape(self.program, vr, uvr, f'{CURRDIR}/tmp/left.png').initialize()
         
         glClearColor(0, 0, 0, 0)
         
