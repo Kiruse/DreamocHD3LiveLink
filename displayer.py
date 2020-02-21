@@ -1,3 +1,8 @@
+# Copyright (c) Skye Cobile <skye.cobile@outlook.com> 2020, Germany
+# SEE LICENSE
+# TODO: Automatically terminate if no request in x minutes?
+# TODO: Host does not properly handle display change requests
+
 from array import array
 from threading import Thread, Lock, Condition
 from ipc import DisplayerHost

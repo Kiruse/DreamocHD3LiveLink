@@ -1,3 +1,6 @@
+# Copyright (c) Skye Cobile <skye.cobile@outlook.com> 2020, Germany
+# SEE LICENSE
+
 from subprocess import Popen, PIPE, TimeoutExpired
 from sys import stdin
 from enum import IntEnum

@@ -1,3 +1,7 @@
+# Copyright (c) Skye Cobile <skye.cobile@outlook.com> 2020, Germany
+# SEE LICENSE
+# TODO: Send KeepAlive Requests to child process
+
 import sys
 import os
 currdir = os.path.abspath(os.path.dirname(__file__))
