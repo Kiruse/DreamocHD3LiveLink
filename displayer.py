@@ -48,6 +48,7 @@ class Shape:
         img = Image.open(self.image_filepath).transpose(Image.FLIP_TOP_BOTTOM)
         glBindTexture(GL_TEXTURE_2D, self.tex)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.size[0], img.size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, self._get_image_data(img).tobytes())
+        glGenerateMipmap(GL_TEXTURE_2D)
     
     def _get_image_data(self, img):
         pixels = array('B')
