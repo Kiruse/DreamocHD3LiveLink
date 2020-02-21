@@ -10,7 +10,8 @@ CURRDIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Shape:
-    def __init__(self, verts, uvs, image_filepath):
+    def __init__(self, program, verts, uvs, image_filepath):
+        self.program = program
         self.vao = 0
         self.vbo_verts = 0
         self.vbo_uvs = 0
@@ -40,15 +41,15 @@ class Shape:
     
     def draw(self):
         glBindVertexArray(self.vao)
+        glBindTexture(GL_TEXTURE_2D, self.tex)
         glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
     
     def load_texture(self):
-        img = Image.open(self.image_filepath)
+        img = Image.open(self.image_filepath).transpose(Image.FLIP_TOP_BOTTOM)
         glBindTexture(GL_TEXTURE_2D, self.tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, img.size[0], img.size[1], 0, GL_RGBA, GL_BYTE, self._get_image_data())
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.size[0], img.size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, self._get_image_data(img).tobytes())
     
-    def _get_image_data(self):
-        img = Image.open(filename)
+    def _get_image_data(self, img):
         pixels = array('B')
         for pixel in img.getdata():
             pixels += array('B', pixel)
@@ -86,9 +87,9 @@ class Displayer(Thread):
         vr  = self._convert_verts([(21.5, -14.5), (25.5, -14.5), (25.5, 14.5), (21.5, -14.5), (25.5, 14.5), (4, 3.5),   (4, 3.5), (25.5, 14.5), (4, 14.5)])
         uvr = self._flatten_vecs( [(0, 0.186),    (0, 0),        (0.735, 0),   (0, 0.186),    (0.735, 0),   (0.456, 1), (0.456, 1), (0.735, 0), (0.735, 1)])
         
-        self.shape_front = Shape(vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
-        self.shape_left  = Shape(vl, uvl, f'{CURRDIR}/tmp/left.png').initialize()
-        self.shape_right = Shape(vr, uvr, f'{CURRDIR}/tmp/right.png').initialize()
+        self.shape_front = Shape(self.program, vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
+        self.shape_left  = Shape(self.program, vl, uvl, f'{CURRDIR}/tmp/left.png').initialize()
+        self.shape_right = Shape(self.program, vr, uvr, f'{CURRDIR}/tmp/right.png').initialize()
         
         glClearColor(0, 0, 0, 0)
         
@@ -205,9 +206,9 @@ class Displayer(Thread):
             self.update_cond.notify()
     
     def do_update(self):
-        # self.shape_front.load_texture()
-        # self.shape_left.load_texture()
-        # self.shape_right.load_texture()
+        self.shape_front.load_texture()
+        self.shape_left.load_texture()
+        self.shape_right.load_texture()
         
         glClear(GL_COLOR_BUFFER_BIT)
         
