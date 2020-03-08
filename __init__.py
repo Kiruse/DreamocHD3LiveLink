@@ -16,6 +16,7 @@ from math import degrees, radians
 import numpy as np
 
 from ipc import DisplayerClient
+from profiler import Profiler
 
 addon_name = __name__
 
@@ -31,61 +32,70 @@ bl_info = {
 }
 
 displayer = None
+profiler  = Profiler()
 cam = None
 
 
 def render(ctx, props, filepath = None):
-    render = ctx.scene.render
-    with TempOverride() as ovr:
-        ovr.override(ctx.scene, 'camera', cam)
-        ovr.override(render, 'resolution_x', props.img_width)
-        ovr.override(render, 'resolution_y', props.img_height)
-        if filepath is not None: ovr.override(render, 'filepath', filepath)
-        ovr.override(render.image_settings, 'file_format', 'PNG')
-        ovr.override(ctx.scene.world.node_tree.nodes['Background'].inputs[0], 'default_value', (0, 0, 0, 1))
-        
-        bpy.ops.render.render(write_still=True)
+    with profiler.segment("render"):
+        render = ctx.scene.render
+        with TempOverride() as ovr:
+            ovr.override(ctx.scene, 'camera', cam)
+            ovr.override(render, 'resolution_x', props.img_width)
+            ovr.override(render, 'resolution_y', props.img_height)
+            if filepath is not None: ovr.override(render, 'filepath', filepath)
+            ovr.override(render.image_settings, 'file_format', 'PNG')
+            ovr.override(ctx.scene.world.node_tree.nodes['Background'].inputs[0], 'default_value', (0, 0, 0, 1))
+            
+            bpy.ops.render.render(write_still=True)
 
 def acquire_camera(name):
-    cameras = bpy.data.cameras
-    objects = bpy.data.objects
-    scene   = bpy.context.scene
-    
-    if name in cameras:
-        data = cameras[name]
-    else:
-        data = cameras.new(name)
-    
-    if name in objects:
-        cam  = objects[name]
-    else:
-        cam  = objects.new(name, data)
-    
-    if cam not in scene.collection.objects.values():
-        scene.collection.objects.link(cam)
-    
-    return cam
+    with profiler.segment("acquire_camera"):
+        cameras = bpy.data.cameras
+        objects = bpy.data.objects
+        scene   = bpy.context.scene
+        
+        with profiler.segment("camera data"):
+            if name in cameras:
+                data = cameras[name]
+            else:
+                data = cameras.new(name)
+        
+        with profiler.segment("camera object"):
+            if name in objects:
+                cam  = objects[name]
+            else:
+                cam  = objects.new(name, data)
+        
+        with profiler.segment("link camera"):
+            if cam not in scene.collection.objects.values():
+                scene.collection.objects.link(cam)
+        
+        return cam
 
 def get_object_quat(obj):
-    mode = obj.rotation_mode
-    if mode == 'QUATERNION':
-        return obj.rotation_quaternion
-    if mode == 'AXIS_ANGLE':
-        val = obj.rotation_axis_angle
-        return Quaternion((val[0], val[1], val[2]), val[3])
-    return obj.rotation_euler.to_quaternion()
+    with profiler.segment("get_object_quat"):
+        mode = obj.rotation_mode
+        if mode == 'QUATERNION':
+            return obj.rotation_quaternion
+        if mode == 'AXIS_ANGLE':
+            val = obj.rotation_axis_angle
+            return Quaternion((val[0], val[1], val[2]), val[3])
+        return obj.rotation_euler.to_quaternion()
 
 def get_camera_up_vector(cam, rotation = None):
-    if rotation is None:
-        rotation = get_object_quat(cam)
-    vec = Vector((0, 1, 0))
-    vec.rotate(rotation)
-    return vec
+    with profiler.segment("get_camera_up_vector"):
+        if rotation is None:
+            rotation = get_object_quat(cam)
+        vec = Vector((0, 1, 0))
+        vec.rotate(rotation)
+        return vec
 
 def get_viewport_offset(region3d):
-    offset = Vector((0, 0, region3d.view_distance))
-    offset.rotate(region3d.view_rotation)
-    return offset
+    with profiler.segment("get_viewport_offset"):
+        offset = Vector((0, 0, region3d.view_distance))
+        offset.rotate(region3d.view_rotation)
+        return offset
 
 def transform_viewport_right(cam, camRotation, pivot, offset):
     _transform_viewport(cam, camRotation, pivot, offset, 90)
@@ -94,26 +104,29 @@ def transform_viewport_left(cam, camRotation, pivot, offset):
     _transform_viewport(cam, camRotation, pivot, offset, -90)
 
 def _transform_viewport(cam, camRotation, pivot, offset, rotation_magnitude):
-    up = get_camera_up_vector(cam, rotation=camRotation)
-    rotation = Quaternion(up.to_tuple(), radians(rotation_magnitude))
-    
-    newOffset = offset.copy()
-    newOffset.rotate(rotation)
-    
-    cam.location = pivot + newOffset
-    
-    cam.rotation_mode = 'QUATERNION'
-    cam.rotation_quaternion = camRotation.copy()
-    cam.rotation_quaternion.rotate(rotation)
+    with profiler.segment("_transform_viewport"):
+        up = get_camera_up_vector(cam, rotation=camRotation)
+        rotation = Quaternion(up.to_tuple(), radians(rotation_magnitude))
+        
+        newOffset = offset.copy()
+        newOffset.rotate(rotation)
+        
+        cam.location = pivot + newOffset
+        
+        cam.rotation_mode = 'QUATERNION'
+        cam.rotation_quaternion = camRotation.copy()
+        cam.rotation_quaternion.rotate(rotation)
 
 
 def update_display(props, context):
-    if displayer is not None:
-        displayer.setDisplay(props.display_number-1)
+    with profiler.segment("update_display"):
+        if displayer is not None:
+            displayer.setDisplay(props.display_number-1)
 
 def update_dimensions(props, context):
-    if displayer is not None:
-        displayer.setDimensions(props.width, props.height)
+    with profiler.segment("update_dimensions"):
+        if displayer is not None:
+            displayer.setDimensions(props.width, props.height)
 
 
 class TempOverride:
@@ -195,48 +208,56 @@ class DreamocHD3LivePreviewUpdateOperator(Operator):
     bl_label  = "Update Dreamoc HD3 Preview"
     
     def execute(self, context):
-        global cam
-        global dimensions_sent
-        cam = acquire_camera('DreamocHD3PreviewCamera')
-        props = context.scene.dreamocpreviewprops
+        with profiler.segment("update operator"):
+            global cam
+            global dimensions_sent
+            cam = acquire_camera('DreamocHD3PreviewCamera')
+            props = context.scene.dreamocpreviewprops
+            
+            if displayer is not None and not displayer.initialized:
+                with profiler.segment("initialize displayer"):
+                    displayer.initialize(display=props.display_number-1, width=props.img_width, height=props.img_height)
+            
+            area = self._get_view3D_area(context)
+            region = self._get_region3D(area)
+            ctx = {'area': area, 'region': self._get_window_region(area)}
+            
+            oldcam = context.scene.camera
+            context.scene.camera = cam
+            
+            pivot  = Vector(region.view_location)
+            offset = get_viewport_offset(region)
+            
+            # Since this is our camera we don't care about resetting it
+            cam.rotation_mode = 'QUATERNION'
+            
+            # Front view
+            with profiler.segment("render front"):
+                with profiler.segment("camera to view"):
+                    try: bpy.ops.view3d.camera_to_view(ctx)
+                    except: pass
+                basequat = get_object_quat(cam).copy() # Original rotation of the viewport camera
+                render(context, props, filepath=f'{currdir}/tmp/front')
+            
+            # Left view
+            with profiler.segment("render left"):
+                transform_viewport_left(cam, basequat, pivot, offset)
+                render(context, props, filepath=f'{currdir}/tmp/left')
+            
+            # Right view
+            with profiler.segment("render right"):
+                transform_viewport_right(cam, basequat, pivot, offset)
+                render(context, props, filepath=f'{currdir}/tmp/right')
+            
+            # Reset viewport as if nothing ever happened
+            bpy.ops.view3d.view_camera(ctx)
+            context.scene.camera = oldcam
+            
+            # Notify displayer app
+            with profiler.segment("notify displayer"):
+                displayer.notify()
         
-        if displayer is not None and not displayer.initialized:
-            displayer.initialize(display=props.display_number-1, width=props.img_width, height=props.img_height)
-        
-        area = self._get_view3D_area(context)
-        region = self._get_region3D(area)
-        ctx = {'area': area, 'region': self._get_window_region(area)}
-        
-        oldcam = context.scene.camera
-        context.scene.camera = cam
-        
-        pivot  = Vector(region.view_location)
-        offset = get_viewport_offset(region)
-        
-        # Since this is our camera we don't care about resetting it
-        cam.rotation_mode = 'QUATERNION'
-        
-        # Front view
-        try: bpy.ops.view3d.camera_to_view(ctx)
-        except: pass
-        basequat = get_object_quat(cam).copy() # Original rotation of the viewport camera
-        render(context, props, filepath=f'{currdir}/tmp/front')
-        
-        # Left view
-        transform_viewport_left(cam, basequat, pivot, offset)
-        render(context, props, filepath=f'{currdir}/tmp/left')
-        
-        # Right view
-        transform_viewport_right(cam, basequat, pivot, offset)
-        render(context, props, filepath=f'{currdir}/tmp/right')
-        
-        # Reset viewport as if nothing ever happened
-        bpy.ops.view3d.view_camera(ctx)
-        context.scene.camera = oldcam
-        
-        # Notify displayer app
-        displayer.notify()
-        
+        profiler.dump().clear()
         return {'FINISHED'}
     
     def _get_view3D_area(self, ctx):

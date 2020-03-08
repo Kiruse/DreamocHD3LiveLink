@@ -9,13 +9,17 @@ from ipc import DisplayerHost
 from OpenGL.GL import *
 from glfw.GLFW import *
 from PIL import Image
+from profiler import Profiler
 import os
+import sys
 
-CURRDIR = os.path.abspath(os.path.dirname(__file__))
+CURRDIR  = os.path.abspath(os.path.dirname(__file__))
+profiler = Profiler()
 
 
 class Shape:
-    def __init__(self, program, verts, uvs, image_filepath):
+    def __init__(self, name, program, verts, uvs, image_filepath):
+        self.name = name
         self.program = program
         self.vao = 0
         self.vbo_verts = 0
@@ -49,21 +53,31 @@ class Shape:
         return self
     
     def draw(self):
-        glBindVertexArray(self.vao)
-        glBindTexture(GL_TEXTURE_2D, self.tex)
-        glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
+        with profiler.segment(f"Shape({self.name}).draw"):
+            glBindVertexArray(self.vao)
+            glBindTexture(GL_TEXTURE_2D, self.tex)
+            glDrawArrays(GL_TRIANGLES, 0, len(self.verts))
     
     def load_texture(self):
-        img = Image.open(self.image_filepath).transpose(Image.FLIP_TOP_BOTTOM).transpose(Image.FLIP_LEFT_RIGHT)
-        glBindTexture(GL_TEXTURE_2D, self.tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.size[0], img.size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, self._get_image_data(img).tobytes())
-        glGenerateMipmap(GL_TEXTURE_2D)
+        with profiler.segment(f"Shape({self.name}).load_texture"):
+            with profiler.segment("Image.open"):
+                img = Image.open(self.image_filepath)
+            with profiler.segment("Image.transpose"):
+                img = img.transpose(Image.FLIP_TOP_BOTTOM).transpose(Image.FLIP_LEFT_RIGHT)
+            
+            glBindTexture(GL_TEXTURE_2D, self.tex)
+            
+            with profiler.segment("upload image"):
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.size[0], img.size[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, self._get_image_data(img).tobytes())
+            with profiler.segment("generate mipmap"):
+                glGenerateMipmap(GL_TEXTURE_2D)
     
     def _get_image_data(self, img):
-        pixels = array('B')
-        for pixel in img.getdata():
-            pixels += array('B', pixel)
-        return pixels
+        with profiler.segment(f"Shape({self.name})._get_image_data"):
+            pixels = array('B')
+            for pixel in img.getdata():
+                pixels += array('B', pixel)
+            return pixels
 
 class Displayer(Thread):
     def __init__(self, *args, **kwargs):
@@ -98,9 +112,9 @@ class Displayer(Thread):
         uvr = self._flatten_vecs( [(-0.226, 0.118), (-0.226, -0.109), (0.962, -0.109), (-0.226, 0.118), (0.962, -0.109), (0.511, 1.109), (0.511, 1.109), (0.962, -0.109), (0.962, 1.109)])
         
         # NOTE: Left view is on the right side of the holographic display and vice versa!
-        self.shape_front = Shape(self.program, vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
-        self.shape_left  = Shape(self.program, vl, uvl, f'{CURRDIR}/tmp/right.png').initialize()
-        self.shape_right = Shape(self.program, vr, uvr, f'{CURRDIR}/tmp/left.png').initialize()
+        self.shape_front = Shape("front", self.program, vf, uvf, f'{CURRDIR}/tmp/front.png').initialize()
+        self.shape_left  = Shape("left",  self.program, vl, uvl, f'{CURRDIR}/tmp/right.png').initialize()
+        self.shape_right = Shape("right", self.program, vr, uvr, f'{CURRDIR}/tmp/left.png').initialize()
         
         glClearColor(0, 0, 0, 0)
         
@@ -217,17 +231,20 @@ class Displayer(Thread):
             self.update_cond.notify()
     
     def do_update(self):
-        self.shape_front.load_texture()
-        self.shape_left.load_texture()
-        self.shape_right.load_texture()
+        with profiler.segment("Displayer.do_update"):
+            self.shape_front.load_texture()
+            self.shape_left.load_texture()
+            self.shape_right.load_texture()
+            
+            glClear(GL_COLOR_BUFFER_BIT)
+            
+            self.shape_front.draw()
+            self.shape_left.draw()
+            self.shape_right.draw()
+            
+            glfwSwapBuffers(self.wnd)
         
-        glClear(GL_COLOR_BUFFER_BIT)
-        
-        self.shape_front.draw()
-        self.shape_left.draw()
-        self.shape_right.draw()
-        
-        glfwSwapBuffers(self.wnd)
+        profiler.dump().clear()
 
 
 def main():
