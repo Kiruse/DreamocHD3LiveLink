@@ -26,6 +26,12 @@ class Profiler:
     def dump(self, io = sys.stdout):
         for segment in self.segments:
             segment.dump(0, io)
+        return self
+    
+    def clear(self):
+        self.segments = []
+        self.active_segment = None
+        return self
 
 class ProfilerSegment:
     def __init__(self, profiler, name = "<unnamed segment>"):
