@@ -6,7 +6,7 @@ from sys import stdin
 from enum import IntEnum
 import os
 
-TERMINATE_TIMEOUT = 5 # seconds
+TERMINATE_TIMEOUT = 2 # seconds
 
 class RequestIds(IntEnum):
     TERMINATE      = 0
