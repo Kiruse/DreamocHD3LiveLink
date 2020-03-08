@@ -1,0 +1,43 @@
+update operator: 427.2874ms
+|-acquire_camera: 0.0387ms
+| |-camera data: 0.0048ms
+| |-camera object: 0.0022ms
+| |-link camera: 0.0071ms
+|-initialize displayer: 0.0433ms
+|-get_viewport_offset: 0.0065ms
+|-render front: 144.9773ms
+| |-camera to view: 0.9644ms
+| |-get_object_quat: 0.0062ms
+| |-render: 143.9374ms
+|-render left: 141.563ms
+| |-_transform_viewport: 0.04ms
+| | |-get_camera_up_vector: 0.0051ms
+| |-render: 141.4851ms
+|-render right: 139.8149ms
+| |-_transform_viewport: 0.0395ms
+| | |-get_camera_up_vector: 0.0065ms
+| |-render: 139.7339ms
+|-notify displayer: 0.0282ms
+
+Displayer.do_update: 1412.9458ms
+|-Shape(front).load_texture: 464.8308ms
+| |-Image.open: 0.363ms
+| |-Image.transpose: 16.1097ms
+| |-upload image: 447.4344ms
+| | |-Shape(front)._get_image_data: 444.6677ms
+| |-generate mipmap: 0.8716ms
+|-Shape(left).load_texture: 477.5753ms
+| |-Image.open: 0.355ms
+| |-Image.transpose: 16.5656ms
+| |-upload image: 459.585ms
+| | |-Shape(left)._get_image_data: 456.583ms
+| |-generate mipmap: 1.0054ms
+|-Shape(right).load_texture: 468.8997ms
+| |-Image.open: 0.3806ms
+| |-Image.transpose: 18.3697ms
+| |-upload image: 449.2383ms
+| | |-Shape(right)._get_image_data: 446.5712ms
+| |-generate mipmap: 0.8584ms
+|-Shape(front).draw: 0.0392ms
+|-Shape(left).draw: 0.01ms
+|-Shape(right).draw: 0.0079ms
