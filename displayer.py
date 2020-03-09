@@ -152,10 +152,11 @@ class Displayer(Thread):
         self.monitor = self._get_monitor(-1)
         vidmode = glfwGetVideoMode(self.monitor)
         
-        glfwWindowHint(GLFW_RED_BITS,     vidmode.bits.red)
-        glfwWindowHint(GLFW_GREEN_BITS,   vidmode.bits.green)
-        glfwWindowHint(GLFW_BLUE_BITS,    vidmode.bits.blue)
-        glfwWindowHint(GLFW_REFRESH_RATE, vidmode.refresh_rate)
+        glfwWindowHint(GLFW_RED_BITS,      vidmode.bits.red)
+        glfwWindowHint(GLFW_GREEN_BITS,    vidmode.bits.green)
+        glfwWindowHint(GLFW_BLUE_BITS,     vidmode.bits.blue)
+        glfwWindowHint(GLFW_REFRESH_RATE,  vidmode.refresh_rate)
+        glfwWindowHint(GLFW_CENTER_CURSOR, GLFW_FALSE)
         self.wnd = glfwCreateWindow(vidmode.size.width, vidmode.size.height, "Dreamoc HD3 Blender Preview", self.monitor, None)
         glfwMakeContextCurrent(self.wnd)
     
